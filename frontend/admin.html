@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — IaaS Portal</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; text-align: center; }
+        .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); line-height: 1; }
+        .stat-label { font-size: 0.8125rem; color: var(--muted); margin-top: 0.375rem; }
+        .admin-badge { background: #7c3aed; color: white; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <span class="nav-brand">☁ IaaS Portal <span style="font-size:0.75rem;background:#7c3aed;color:white;padding:0.15rem 0.5rem;border-radius:4px;margin-left:0.5rem;">ADMIN</span></span>
+    <div class="nav-right">
+        <span class="nav-user" id="navUser"></span>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+    </div>
+</nav>
+
+<div class="container">
+
+    <!-- Stats -->
+    <div class="stat-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Total Users</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Active Subscriptions</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Total Rental Logs</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">MiniStack Buckets</div></div>
+    </div>
+
+    <!-- Users -->
+    <div class="card">
+        <div class="section-title">All Users</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Active Subscriptions</th>
+                        <th>Registered</th>
+                    </tr>
+                </thead>
+                <tbody id="usersBody">
+                    <tr><td colspan="6" class="empty">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- All Logs -->
+    <div class="card">
+        <div class="section-title">All Rental Logs</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>User</th>
+                        <th>Package</th>
+                        <th>Type</th>
+                        <th>Action</th>
+                        <th>Resource</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="logsBody">
+                    <tr><td colspan="7" class="empty">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!getToken()) { location.replace('/login.html'); }
+
+function logout() { clearToken(); location.href = '/login.html'; }
+
+function fmtDateTime(iso) {
+    return new Date(iso).toLocaleString('en-GB', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+    });
+}
+
+function typeClass(t) {
+    return { compute: 'badge-compute', storage: 'badge-storage', network: 'badge-network' }[t] || '';
+}
+
+async function guardAdmin() {
+    const res = await api.me();
+    if (!res) return false;
+    const user = await res.json();
+    if (!user.is_admin) { location.replace('/dashboard.html'); return false; }
+    document.getElementById('navUser').textContent = `Hi, ${user.full_name}`;
+    return true;
+}
+
+async function loadStats() {
+    const res = await api.adminStats();
+    if (!res || !res.ok) return;
+    const s = await res.json();
+    const grid = document.getElementById('statsGrid');
+    const labels = ['Total Users', 'Active Subscriptions', 'Total Rental Logs', 'MiniStack Buckets'];
+    const values = [s.total_users, s.active_subscriptions, s.total_logs, s.total_buckets];
+    grid.innerHTML = labels.map((l, i) => `
+        <div class="stat-card">
+            <div class="stat-value">${values[i]}</div>
+            <div class="stat-label">${l}</div>
+        </div>
+    `).join('');
+}
+
+async function loadUsers() {
+    const res = await api.adminUsers();
+    if (!res || !res.ok) return;
+    const users = await res.json();
+    const tbody = document.getElementById('usersBody');
+    if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No users yet.</td></tr>'; return; }
+    tbody.innerHTML = users.map((u, i) => `
+        <tr>
+            <td style="color:var(--muted)">${u.id}</td>
+            <td><strong>${u.full_name}</strong></td>
+            <td style="color:var(--muted)">${u.email}</td>
+            <td>
+                <span class="badge ${u.is_admin ? 'admin-badge' : 'badge-active'}">
+                    ${u.is_admin ? 'Admin' : 'User'}
+                </span>
+            </td>
+            <td style="text-align:center">${u.active_subscriptions}</td>
+            <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(u.created_at)}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadLogs() {
+    const res = await api.adminLogs();
+    if (!res || !res.ok) return;
+    const logs = await res.json();
+    const tbody = document.getElementById('logsBody');
+    if (!logs.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No logs yet.</td></tr>'; return; }
+    tbody.innerHTML = logs.map(l => `
+        <tr>
+            <td style="color:var(--muted)">${l.id}</td>
+            <td style="font-size:0.8125rem"><strong>${l.user.full_name}</strong><br><span style="color:var(--muted)">${l.user.email}</span></td>
+            <td>${l.package.name}</td>
+            <td><span class="badge ${typeClass(l.package.type)}">${l.package.type}</span></td>
+            <td><span class="badge ${l.action === 'rent' ? 'badge-rent' : 'badge-release'}">${l.action}</span></td>
+            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted)">${l.resource_ref || '—'}</td>
+            <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(l.timestamp)}</td>
+        </tr>
+    `).join('');
+}
+
+(async () => {
+    const isAdmin = await guardAdmin();
+    if (!isAdmin) return;
+    await Promise.all([loadStats(), loadUsers(), loadLogs()]);
+})();
+</script>
+</body>
+</html>

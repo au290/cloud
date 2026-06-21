@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>IaaS Portal</title></head>
+<body>
+<script>
+    if (localStorage.getItem('token')) {
+        location.replace('/dashboard.html');
+    } else {
+        location.replace('/login.html');
+    }
+</script>
+</body>
+</html>

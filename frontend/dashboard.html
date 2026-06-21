@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — IaaS Portal</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<nav>
+    <span class="nav-brand">☁ IaaS Portal</span>
+    <div class="nav-right">
+        <span class="nav-user" id="navUser"></span>
+        <a href="/logs.html" class="btn btn-ghost btn-sm">Activity Logs</a>
+        <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+    </div>
+</nav>
+
+<div class="container">
+
+    <!-- Quota Summary -->
+    <div class="card">
+        <div class="section-title">Available Quota</div>
+        <div id="quotaGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:1rem;">
+            <div class="empty">Loading…</div>
+        </div>
+    </div>
+
+    <!-- Available Packages -->
+    <div class="card">
+        <div class="section-title">Available Packages</div>
+        <div class="pkg-grid" id="packagesGrid">
+            <div class="empty">Loading packages…</div>
+        </div>
+    </div>
+
+    <!-- Active Subscriptions -->
+    <div class="card">
+        <div class="section-title">My Active Resources</div>
+        <div class="table-wrap">
+            <table id="subsTable">
+                <thead>
+                    <tr>
+                        <th>Package</th>
+                        <th>Type</th>
+                        <th>Quota</th>
+                        <th>Rented At</th>
+                        <th>Expires At</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody id="subsBody">
+                    <tr><td colspan="6" class="empty">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Credentials -->
+    <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+            <div class="section-title" style="margin-bottom:0">My MiniStack Credentials</div>
+            <button class="btn btn-primary btn-sm" onclick="requestCredentials(this)">+ Request New Credentials</button>
+        </div>
+        <div id="newCredAlert"></div>
+        <div id="credsContainer"><p class="empty">Loading credentials…</p></div>
+    </div>
+
+</div>
+
+<script src="/js/api.js"></script>
+<script>
+if (!getToken()) location.replace('/login.html');
+
+function logout() {
+    clearToken();
+    location.href = '/login.html';
+}
+
+function fmtDate(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function typeClass(t) {
+    return { compute: 'badge-compute', storage: 'badge-storage', network: 'badge-network' }[t] || '';
+}
+
+async function loadUser() {
+    const res = await api.me();
+    if (!res) return;
+    const u = await res.json();
+    document.getElementById('navUser').textContent = `Hi, ${u.full_name}`;
+}
+
+async function loadPackages() {
+    const res = await api.packages();
+    if (!res) return;
+    const pkgs = await res.json();
+    const grid = document.getElementById('packagesGrid');
+    if (!pkgs.length) { grid.innerHTML = '<p class="empty">No packages available.</p>'; return; }
+    grid.innerHTML = pkgs.map(p => `
+        <div class="pkg-card">
+            <span class="badge ${typeClass(p.type)}">${p.type}</span>
+            <div class="pkg-name">${p.name}</div>
+            <div class="pkg-quota">${p.quota_value} ${p.quota_unit}</div>
+            <div class="pkg-price">$${p.price}<span style="font-size:0.75rem;font-weight:400;color:var(--muted)">/mo</span></div>
+            <p style="font-size:0.8125rem;color:var(--muted);flex:1">${p.description || ''}</p>
+            <button class="btn btn-primary btn-sm" onclick="rentPackage(${p.id}, this)">Rent</button>
+        </div>
+    `).join('');
+}
+
+async function rentPackage(id, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Renting…';
+    const res = await api.rent(id);
+    if (!res) return;
+    if (res.ok) {
+        await loadSubscriptions();
+    } else {
+        const err = await res.json();
+        alert(err.detail || 'Could not rent package');
+    }
+    btn.disabled = false;
+    btn.textContent = 'Rent';
+}
+
+async function loadSubscriptions() {
+    const res = await api.dashboard();
+    if (!res) return;
+    const data = await res.json();
+    const subs = data.subscriptions;
+
+    // Update quota summary
+    updateQuotaSummary(subs);
+
+    const tbody = document.getElementById('subsBody');
+    if (!subs.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">No active subscriptions. Rent a package above.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = subs.map(s => `
+        <tr>
+            <td><strong>${s.package.name}</strong></td>
+            <td><span class="badge ${typeClass(s.package.type)}">${s.package.type}</span></td>
+            <td>${s.package.quota_value} ${s.package.quota_unit}</td>
+            <td>${fmtDate(s.rented_at)}</td>
+            <td>${fmtDate(s.expires_at)}</td>
+            <td>
+                <button class="btn btn-danger btn-sm" onclick="releaseSubscription(${s.id}, this)">Release</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function updateQuotaSummary(subs) {
+    const grid = document.getElementById('quotaGrid');
+    const types = [
+        { key: 'compute', label: 'Compute', icon: '⚙️' },
+        { key: 'storage', label: 'Storage', icon: '🗄️' },
+        { key: 'network', label: 'Network', icon: '🌐' },
+    ];
+    grid.innerHTML = types.map(t => {
+        const active = subs.filter(s => s.package.type === t.key);
+        const total = active.reduce((acc, s) => acc + s.package.quota_value, 0);
+        const unit  = active.length ? active[0].package.quota_unit : '—';
+        return `
+            <div style="border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center;">
+                <div style="font-size:1.5rem">${t.icon}</div>
+                <div style="font-size:0.8125rem;color:var(--muted);margin:0.25rem 0">${t.label}</div>
+                <div style="font-size:1.375rem;font-weight:700;color:var(--primary)">
+                    ${active.length ? `${total} ${unit}` : '<span style="color:var(--muted);font-size:1rem">None rented</span>'}
+                </div>
+                <div style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">
+                    ${active.length} active subscription${active.length !== 1 ? 's' : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function releaseSubscription(id, btn) {
+    if (!confirm('Release this subscription?')) return;
+    btn.disabled = true;
+    btn.textContent = 'Releasing…';
+    const res = await api.release(id);
+    if (!res) return;
+    await loadSubscriptions();
+}
+
+async function loadCredentials() {
+    const res = await api.credentials();
+    if (!res) return;
+    const creds = await res.json();
+    const container = document.getElementById('credsContainer');
+    if (!creds.length) {
+        container.innerHTML = '<p class="empty">No credentials found. Try registering again.</p>';
+        return;
+    }
+    container.innerHTML = creds.map((c, i) => `
+        <div style="margin-bottom:${i < creds.length-1 ? '1.25rem' : '0'}">
+            <div class="cred-row">
+                <span class="cred-label">Access Key</span>
+                <span class="cred-value">${c.access_key}</span>
+                <button class="btn btn-ghost btn-sm" onclick="copyText('${c.access_key}', this)">Copy</button>
+            </div>
+            <div class="cred-row">
+                <span class="cred-label">Secret Key</span>
+                <span class="cred-value" id="sk-${i}">••••••••••••••••</span>
+                <button class="btn btn-ghost btn-sm" onclick="toggleSecret('${c.secret_key}', '${i}', this)">Reveal</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--muted);margin-top:0.25rem">Created: ${fmtDate(c.created_at)}</p>
+        </div>
+    `).join('<hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">');
+}
+
+function toggleSecret(secret, idx, btn) {
+    const el = document.getElementById('sk-' + idx);
+    if (el.textContent === '••••••••••••••••') {
+        el.textContent = secret;
+        btn.textContent = 'Hide';
+    } else {
+        el.textContent = '••••••••••••••••';
+        btn.textContent = 'Reveal';
+    }
+}
+
+async function requestCredentials(btn) {
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    const alertEl = document.getElementById('newCredAlert');
+    alertEl.innerHTML = '';
+
+    const res = await fetch('/dashboard/credentials', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
+    });
+
+    if (res && res.ok) {
+        const c = await res.json();
+        alertEl.innerHTML = `
+            <div class="alert alert-success" style="font-family:monospace;font-size:0.8125rem">
+                ✅ New credentials generated!<br>
+                <strong>Access Key:</strong> ${c.access_key}<br>
+                <strong>Secret Key:</strong> ${c.secret_key}<br>
+                <span style="font-size:0.75rem;color:var(--success)">Save the secret key now — it will be masked below.</span>
+            </div>
+        `;
+        await loadCredentials();
+    } else {
+        alertEl.innerHTML = `<div class="alert alert-error">Failed to generate credentials.</div>`;
+    }
+    btn.disabled = false;
+    btn.textContent = '+ Request New Credentials';
+}
+
+async function copyText(text, btn) {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+}
+
+// Init
+(async () => {
+    await Promise.all([loadUser(), loadPackages(), loadSubscriptions(), loadCredentials()]);
+    // Show empty quota state if no subs loaded
+    const grid = document.getElementById('quotaGrid');
+    if (grid.innerHTML.includes('Loading')) updateQuotaSummary([]);
+})();
+</script>
+</body>
+</html>
