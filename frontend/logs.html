@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Activity Logs — IaaS Portal</title>
+    <title>Activity — MiniStack Storage</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 
 <nav>
-    <span class="nav-brand">☁ IaaS Portal</span>
+    <span class="nav-brand">🪣 MiniStack Storage</span>
     <div class="nav-right">
         <a href="/dashboard.html" class="btn btn-ghost btn-sm">← Dashboard</a>
         <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
@@ -18,22 +18,13 @@
 
 <div class="container">
     <div class="card">
-        <div class="section-title">Rental Activity Logs</div>
+        <div class="section-title">Activity Log</div>
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Package</th>
-                        <th>Type</th>
-                        <th>Action</th>
-                        <th>Resource</th>
-                        <th>Timestamp</th>
-                    </tr>
+                    <tr><th>#</th><th>Action</th><th>Detail</th><th>Bytes</th><th>Timestamp</th></tr>
                 </thead>
-                <tbody id="logsBody">
-                    <tr><td colspan="6" class="empty">Loading…</td></tr>
-                </tbody>
+                <tbody id="logsBody"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -42,39 +33,33 @@
 <script src="/js/api.js"></script>
 <script>
 if (!getToken()) location.replace('/login.html');
-
 function logout() { clearToken(); location.href = '/login.html'; }
+function fmtDateTime(iso) { return new Date(iso).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
 
-function typeClass(t) {
-    return { compute: 'badge-compute', storage: 'badge-storage', network: 'badge-network' }[t] || '';
-}
-
-function fmtDateTime(iso) {
-    return new Date(iso).toLocaleString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-    });
+function actionBadge(a) {
+    const map = {
+        upload: 'badge-rent', download: 'badge-storage', delete: 'badge-release',
+        subscribe: 'badge-active', register: 'badge-active',
+        bucket_created: 'badge-storage', key_generated: 'badge-network',
+        quota_exceeded: 'badge-release',
+    };
+    return map[a] || '';
 }
 
 (async () => {
     const res = await api.logs();
-    if (!res) return;
+    if (!res || !res.ok) return;
     const logs = await res.json();
     const tbody = document.getElementById('logsBody');
-    if (!logs.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty">No activity yet.</td></tr>';
-        return;
-    }
+    if (!logs.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No activity yet.</td></tr>'; return; }
     tbody.innerHTML = logs.map((l, i) => `
         <tr>
             <td style="color:var(--muted)">${i + 1}</td>
-            <td><strong>${l.package.name}</strong></td>
-            <td><span class="badge ${typeClass(l.package.type)}">${l.package.type}</span></td>
-            <td><span class="badge ${l.action === 'rent' ? 'badge-rent' : 'badge-release'}">${l.action}</span></td>
-            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted)">${l.resource_ref || '—'}</td>
-            <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(l.timestamp)}</td>
-        </tr>
-    `).join('');
+            <td><span class="badge ${actionBadge(l.action)}">${l.action}</span></td>
+            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted)">${l.detail || '—'}</td>
+            <td>${l.bytes != null ? fmtBytes(l.bytes) : '—'}</td>
+            <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(l.created_at)}</td>
+        </tr>`).join('');
 })();
 </script>
 </body>

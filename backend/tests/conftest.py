@@ -1,131 +1,129 @@
+"""Test harness: Flask test client over an isolated PostgreSQL DB with MiniStack faked.
+
+Tests run against a dedicated database (default: the local `iaas_test` DB) so they
+never touch dev data. Override with TEST_DATABASE_URL. MiniStack is replaced by an
+in-memory object store so the storage flow (bucket create, put/get/list/delete,
+quota) is exercised without a running emulator.
+"""
+import os
+
 import pytest
-from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text as sa_text
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
-from database import Base, get_db
-from main import app
+# Point the app at the test database BEFORE importing anything that reads it.
+os.environ["DATABASE_URL"] = os.getenv(
+    "TEST_DATABASE_URL", "postgresql://postgres:user@localhost:5432/iaas_test"
+)
+os.environ.setdefault("JWT_SECRET", "test-secret")
+
+
+class FakeMiniStack:
+    """Minimal in-memory stand-in for the boto3 S3/IAM calls we make."""
+    def __init__(self):
+        self.buckets: dict[str, dict[str, bytes]] = {}
+        self.types: dict[tuple, str] = {}
+        self._key_counter = 0
+
+    def create_bucket(self, name, region="us-east-1"):
+        self.buckets.setdefault(name, {})
+
+    def list_objects(self, bucket):
+        return [{"key": k, "size": len(v)} for k, v in self.buckets.get(bucket, {}).items()]
+
+    def total_size(self, bucket):
+        return sum(len(v) for v in self.buckets.get(bucket, {}).values())
+
+    def put_object(self, bucket, key, body, content_type=None):
+        if bucket not in self.buckets:
+            raise RuntimeError("NoSuchBucket")  # mirror real S3
+        self.buckets[bucket][key] = body
+        self.types[(bucket, key)] = content_type
+
+    def upload_fileobj(self, bucket, key, fileobj, content_type=None):
+        if bucket not in self.buckets:
+            raise RuntimeError("NoSuchBucket")  # mirror real S3
+        self.buckets[bucket][key] = fileobj.read()
+        self.types[(bucket, key)] = content_type
+
+    def get_object(self, bucket, key):
+        if key not in self.buckets.get(bucket, {}):
+            raise KeyError(key)
+        return self.buckets[bucket][key], self.types.get((bucket, key))
+
+    def delete_object(self, bucket, key):
+        self.buckets.get(bucket, {}).pop(key, None)
+
+    def presigned_url(self, bucket, key, expires=300):
+        return f"http://localhost:4566/{bucket}/{key}?sig=test"
+
+    def create_user_credentials(self, username):
+        self._key_counter += 1
+        return {"access_key": f"AKIATEST{self._key_counter:08d}",
+                "secret_key": f"secret-{self._key_counter}"}
+
+    def list_buckets(self):
+        return list(self.buckets.keys())
 
 
 @pytest.fixture()
-def db_session():
-    engine = create_engine(
-        "sqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
+def fake_ms(monkeypatch):
+    fake = FakeMiniStack()
+    import ministack_client as ms
+    for name in ("create_bucket", "list_objects", "total_size", "put_object",
+                 "upload_fileobj", "get_object", "delete_object", "presigned_url",
+                 "create_user_credentials", "list_buckets"):
+        monkeypatch.setattr(ms, name, getattr(fake, name))
+    return fake
+
+
+@pytest.fixture()
+def app_ctx(fake_ms):
+    from app import create_app
+    from database import engine, db_session, Base
+    import models  # noqa: F401
+
+    # Fresh schema per test. Postgres honors the partial unique index
+    # (postgresql_where) natively, so no manual index fix-up is needed.
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    # SQLAlchemy ignores postgresql_where on SQLite, creating a non-partial unique index.
-    # Drop and recreate it as a proper partial index so re-renting after release works.
-    with engine.connect() as conn:
-        conn.execute(sa_text("DROP INDEX IF EXISTS uq_active_sub_per_package"))
-        conn.execute(sa_text(
-            "CREATE UNIQUE INDEX uq_active_sub_per_package "
-            "ON user_subscriptions(user_id, package_id) "
-            "WHERE status = 'active'"
-        ))
-        conn.commit()
-    Session = sessionmaker(bind=engine)
-    session = Session()
-    yield session
-    session.close()
-    engine.dispose()
+
+    from seed import seed_packages, seed_admin
+    seed_packages()
+    seed_admin()
+
+    app = create_app(run_init=False)
+    app.config.update(TESTING=True)
+    yield app
+    db_session.remove()
 
 
 @pytest.fixture()
-def mock_ministack():
-    iam_mock = MagicMock()
-    iam_mock.create_user.return_value = {}
-    _counter = [0]
-
-    def _make_key(**kwargs):
-        _counter[0] += 1
-        return {"AccessKey": {"AccessKeyId": f"AKIA{_counter[0]:016d}", "SecretAccessKey": f"secret{_counter[0]}"}}
-
-    iam_mock.create_access_key.side_effect = _make_key
-
-    s3_mock = MagicMock()
-    s3_mock.list_buckets.return_value = {"Buckets": []}
-    s3_mock.head_bucket.side_effect = Exception("NoSuchBucket")
-    s3_mock.create_bucket.return_value = {}
-
-    ssm_mock = MagicMock()
-    ssm_mock.put_parameter.return_value = {}
-
-    with patch("ministack_client.get_iam", return_value=iam_mock), \
-         patch("ministack_client.get_s3", return_value=s3_mock), \
-         patch("ministack_client.get_ssm", return_value=ssm_mock):
-        yield {"iam": iam_mock, "s3": s3_mock, "ssm": ssm_mock}
+def client(app_ctx):
+    return app_ctx.test_client()
 
 
-@pytest.fixture()
-def client(db_session, mock_ministack):
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture()
-def seeded_packages(db_session):
-    from models import SubscriptionPackage, PackageType
-    packages = [
-        SubscriptionPackage(name="Basic Compute", type=PackageType.compute,
-                            quota_value=2, quota_unit="vCPU", price=10.00,
-                            description="2 vCPUs"),
-        SubscriptionPackage(name="Basic Storage", type=PackageType.storage,
-                            quota_value=50, quota_unit="GB", price=5.00,
-                            description="50GB storage"),
-        SubscriptionPackage(name="Basic Network", type=PackageType.network,
-                            quota_value=100, quota_unit="Mbps", price=15.00,
-                            description="100 Mbps"),
-    ]
-    db_session.add_all(packages)
-    db_session.commit()
-    for p in packages:
-        db_session.refresh(p)
-    return packages
-
-
-@pytest.fixture()
-def admin_headers(client, db_session):
-    resp = client.post("/auth/register", json={
-        "full_name": "Admin User",
-        "email": "admin@example.com",
-        "password": "adminpass123",
+# --- helpers ---------------------------------------------------------------
+def register(client, username="alice", email="alice@example.com", password="password123"):
+    return client.post("/api/register", json={
+        "username": username, "email": email, "password": password,
     })
-    assert resp.status_code == 201, resp.text
-    user_id = resp.json()["id"]
-    from models import User
-    user = db_session.query(User).filter(User.id == user_id).first()
-    user.is_admin = True
-    db_session.commit()
-    login = client.post("/auth/login", data={"username": "admin@example.com", "password": "adminpass123"})
-    return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+
+def auth_headers(client, **kwargs):
+    register(client, **kwargs)
+    email = kwargs.get("email", "alice@example.com")
+    password = kwargs.get("password", "password123")
+    res = client.post("/api/login", json={"email": email, "password": password})
+    token = res.get_json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 @pytest.fixture()
-def registered_user(client):
-    resp = client.post("/auth/register", json={
-        "full_name": "Test User",
-        "email": "test@example.com",
-        "password": "testpass123",
-    })
-    assert resp.status_code == 201, resp.text
-    return resp.json()
+def user_headers(client):
+    return auth_headers(client)
 
 
 @pytest.fixture()
-def auth_headers(client, registered_user):
-    resp = client.post("/auth/login", data={
-        "username": "test@example.com",
-        "password": "testpass123",
-    })
-    assert resp.status_code == 200, resp.text
-    token = resp.json()["access_token"]
+def admin_headers(client):
+    res = client.post("/api/login", json={"email": "admin@iaas.local", "password": "admin123"})
+    token = res.get_json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

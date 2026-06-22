@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — IaaS Portal</title>
+    <title>Login — MiniStack Storage</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="auth-wrap">
     <div class="auth-card">
         <div class="auth-title">Welcome back</div>
-        <div class="auth-sub">Sign in to your IaaS Portal account</div>
+        <div class="auth-sub">Sign in to your MiniStack Storage account</div>
         <div id="alert"></div>
         <form id="loginForm">
             <div class="form-group">
@@ -47,17 +47,13 @@
 
         if (!res) return;
 
-        if (res.ok) {
+        if (res && res.ok) {
             const data = await res.json();
             setToken(data.access_token);
-            // Check if admin and redirect accordingly
-            const meRes = await api.me();
-            const user = meRes ? await meRes.json() : null;
-            location.href = (user && user.is_admin) ? '/admin.html' : '/dashboard.html';
+            location.href = data.is_admin ? '/admin.html' : '/dashboard.html';
         } else {
-            const err = await res.json();
-            const msg = Array.isArray(err.detail) ? err.detail.map(e => e.msg).join(', ') : (err.detail || 'Login failed');
-            alert.innerHTML = `<div class="alert alert-error">${msg}</div>`;
+            const err = res ? await res.json() : {};
+            alert.innerHTML = `<div class="alert alert-error">${err.detail || 'Login failed'}</div>`;
             btn.disabled = false;
             btn.textContent = 'Sign in';
         }

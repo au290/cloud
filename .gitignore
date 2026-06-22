@@ -7,3 +7,6 @@ venv/
 *.egg-info/
 .pytest_cache/
 node_modules/
+
+# SQLite databases
+*.db

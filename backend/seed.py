@@ -1,60 +1,29 @@
-from database import SessionLocal, engine, Base
-from models import SubscriptionPackage, PackageType, User
+"""Seed the 3+ storage packages (skill: "at least 3") and a default admin user."""
+import os
 
-Base.metadata.create_all(bind=engine)
+from database import SessionLocal, engine, Base
+from models import Package, User, UserStatus
+
+GB = 1024 ** 3
 
 PACKAGES = [
-    SubscriptionPackage(
-        name="Basic Compute",
-        type=PackageType.compute,
-        quota_value=2,
-        quota_unit="vCPU",
-        price=10.00,
-        description="2 virtual CPUs with 4GB RAM. Suitable for small applications.",
-    ),
-    SubscriptionPackage(
-        name="Standard Compute",
-        type=PackageType.compute,
-        quota_value=8,
-        quota_unit="vCPU",
-        price=35.00,
-        description="8 virtual CPUs with 16GB RAM. Suitable for medium workloads.",
-    ),
-    SubscriptionPackage(
-        name="Basic Storage",
-        type=PackageType.storage,
-        quota_value=50,
-        quota_unit="GB",
-        price=5.00,
-        description="50GB object storage bucket. S3-compatible via MiniStack.",
-    ),
-    SubscriptionPackage(
-        name="Pro Storage",
-        type=PackageType.storage,
-        quota_value=500,
-        quota_unit="GB",
-        price=25.00,
-        description="500GB object storage bucket. S3-compatible via MiniStack.",
-    ),
-    SubscriptionPackage(
-        name="Basic Network",
-        type=PackageType.network,
-        quota_value=100,
-        quota_unit="Mbps",
-        price=15.00,
-        description="100 Mbps dedicated bandwidth with 1TB monthly transfer.",
-    ),
+    dict(name="Free",  quota_bytes=1 * GB,    max_buckets=1, price=0.00,
+         description="1 GB object storage. Great for trying things out."),
+    dict(name="Basic", quota_bytes=50 * GB,   max_buckets=1, price=5.00,
+         description="50 GB object storage. S3-compatible via MiniStack."),
+    dict(name="Pro",   quota_bytes=500 * GB,  max_buckets=3, price=25.00,
+         description="500 GB object storage with up to 3 buckets."),
 ]
 
 
 def seed_packages():
     db = SessionLocal()
     try:
-        if db.query(SubscriptionPackage).count() > 0:
+        if db.query(Package).count() > 0:
             return
-        db.add_all(PACKAGES)
+        db.add_all([Package(**p) for p in PACKAGES])
         db.commit()
-        print(f"Seeded {len(PACKAGES)} subscription packages.")
+        print(f"Seeded {len(PACKAGES)} storage packages.")
     finally:
         db.close()
 
@@ -63,21 +32,24 @@ def seed_admin():
     from security import hash_password
     db = SessionLocal()
     try:
-        if db.query(User).filter(User.email == "admin@iaas.local").first():
+        email = os.getenv("ADMIN_EMAIL", "admin@iaas.local")
+        if db.query(User).filter(User.email == email).first():
             return
         db.add(User(
-            full_name="Super Admin",
-            email="admin@iaas.local",
-            password_hash=hash_password("admin123"),
+            username="admin",
+            email=email,
+            password_hash=hash_password(os.getenv("ADMIN_PASSWORD", "admin123")),
+            status=UserStatus.active,
             is_admin=True,
         ))
         db.commit()
-        print("Admin user created: admin@iaas.local / admin123")
+        print(f"Admin user created: {email} / admin123")
     finally:
         db.close()
 
 
 def run():
+    Base.metadata.create_all(bind=engine)
     seed_packages()
     seed_admin()
 

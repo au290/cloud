@@ -3,20 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin — IaaS Portal</title>
+    <title>Admin — MiniStack Storage</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; }
         .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; text-align: center; }
-        .stat-value { font-size: 2rem; font-weight: 700; color: var(--primary); line-height: 1; }
+        .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--primary); line-height: 1; }
         .stat-label { font-size: 0.8125rem; color: var(--muted); margin-top: 0.375rem; }
         .admin-badge { background: #7c3aed; color: white; }
+        .pkg-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem; align-items: end; }
+        .pkg-form label { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.2rem; }
+        .pkg-form input { width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; }
     </style>
 </head>
 <body>
 
 <nav>
-    <span class="nav-brand">☁ IaaS Portal <span style="font-size:0.75rem;background:#7c3aed;color:white;padding:0.15rem 0.5rem;border-radius:4px;margin-left:0.5rem;">ADMIN</span></span>
+    <span class="nav-brand">🪣 MiniStack Storage <span style="font-size:0.75rem;background:#7c3aed;color:white;padding:0.15rem 0.5rem;border-radius:4px;margin-left:0.5rem;">ADMIN</span></span>
     <div class="nav-right">
         <span class="nav-user" id="navUser"></span>
         <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
@@ -25,55 +28,63 @@
 
 <div class="container">
 
-    <!-- Stats -->
     <div class="stat-grid" id="statsGrid">
-        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Total Users</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Users</div></div>
         <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Active Subscriptions</div></div>
-        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Total Rental Logs</div></div>
-        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">MiniStack Buckets</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Buckets</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Total Stored</div></div>
+        <div class="stat-card"><div class="stat-value">—</div><div class="stat-label">Activity Logs</div></div>
+    </div>
+
+    <!-- Package management (CRUD) -->
+    <div class="card">
+        <div class="section-title">Packages</div>
+        <div id="pkgAlert"></div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>#</th><th>Name</th><th>Quota</th><th>Max buckets</th><th>Price</th><th>Description</th><th></th></tr>
+                </thead>
+                <tbody id="pkgBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
+            </table>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">
+        <form class="pkg-form" id="pkgForm" onsubmit="return createPackage(event)">
+            <div><label>Name</label><input id="pName" required placeholder="Team"></div>
+            <div><label>Quota (MB)</label><input id="pQuota" type="number" min="1" required placeholder="100"></div>
+            <div><label>Max buckets</label><input id="pBuckets" type="number" min="1" value="1"></div>
+            <div><label>Price ($)</label><input id="pPrice" type="number" min="0" step="0.01" value="0"></div>
+            <div style="grid-column:span 2"><label>Description</label><input id="pDesc" placeholder="…"></div>
+            <div><button class="btn btn-primary btn-sm" type="submit">+ Add package</button></div>
+        </form>
     </div>
 
     <!-- Users -->
     <div class="card">
         <div class="section-title">All Users</div>
+        <div id="userAlert"></div>
         <div class="table-wrap">
             <table>
                 <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Active Subscriptions</th>
-                        <th>Registered</th>
-                    </tr>
+                    <tr><th>#</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th>Credits</th><th>Package</th><th>Used</th><th>Actions</th></tr>
                 </thead>
-                <tbody id="usersBody">
-                    <tr><td colspan="6" class="empty">Loading…</td></tr>
-                </tbody>
+                <tbody id="usersBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody>
             </table>
         </div>
     </div>
 
-    <!-- All Logs -->
+    <!-- Activity -->
     <div class="card">
-        <div class="section-title">All Rental Logs</div>
-        <div class="table-wrap">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+            <div class="section-title" style="margin-bottom:0">Activity <span id="logFilterLabel" style="font-weight:400;color:var(--muted);font-size:0.875rem"></span></div>
+            <button class="btn btn-ghost btn-sm" id="clearFilterBtn" style="display:none" onclick="filterLogs(null)">Clear filter</button>
+        </div>
+        <div class="table-wrap" style="margin-top:0.75rem">
             <table>
                 <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>User</th>
-                        <th>Package</th>
-                        <th>Type</th>
-                        <th>Action</th>
-                        <th>Resource</th>
-                        <th>Timestamp</th>
-                    </tr>
+                    <tr><th>#</th><th>User</th><th>Action</th><th>Detail</th><th>Bytes</th><th>Timestamp</th></tr>
                 </thead>
-                <tbody id="logsBody">
-                    <tr><td colspan="7" class="empty">Loading…</td></tr>
-                </tbody>
+                <tbody id="logsBody"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody>
             </table>
         </div>
     </div>
@@ -83,26 +94,17 @@
 <script src="/js/api.js"></script>
 <script>
 if (!getToken()) { location.replace('/login.html'); }
-
 function logout() { clearToken(); location.href = '/login.html'; }
-
-function fmtDateTime(iso) {
-    return new Date(iso).toLocaleString('en-GB', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit',
-    });
-}
-
-function typeClass(t) {
-    return { compute: 'badge-compute', storage: 'badge-storage', network: 'badge-network' }[t] || '';
-}
+function fmtDateTime(iso) { return new Date(iso).toLocaleString('en-GB', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); }
+const MB = 1024 * 1024;
+let LOG_FILTER = null;
 
 async function guardAdmin() {
     const res = await api.me();
-    if (!res) return false;
-    const user = await res.json();
-    if (!user.is_admin) { location.replace('/dashboard.html'); return false; }
-    document.getElementById('navUser').textContent = `Hi, ${user.full_name}`;
+    if (!res || !res.ok) { location.replace('/login.html'); return false; }
+    const data = await res.json();
+    if (!data.user.is_admin) { location.replace('/dashboard.html'); return false; }
+    document.getElementById('navUser').textContent = `Hi, ${data.user.username}`;
     return true;
 }
 
@@ -110,62 +112,155 @@ async function loadStats() {
     const res = await api.adminStats();
     if (!res || !res.ok) return;
     const s = await res.json();
-    const grid = document.getElementById('statsGrid');
-    const labels = ['Total Users', 'Active Subscriptions', 'Total Rental Logs', 'MiniStack Buckets'];
-    const values = [s.total_users, s.active_subscriptions, s.total_logs, s.total_buckets];
-    grid.innerHTML = labels.map((l, i) => `
-        <div class="stat-card">
-            <div class="stat-value">${values[i]}</div>
-            <div class="stat-label">${l}</div>
-        </div>
-    `).join('');
+    const items = [
+        ['Users', s.total_users], ['Active Subscriptions', s.active_subscriptions],
+        ['Buckets', s.total_buckets], ['Total Stored', fmtBytes(s.total_used_bytes)],
+        ['Activity Logs', s.total_logs],
+    ];
+    document.getElementById('statsGrid').innerHTML = items.map(([l, v]) =>
+        `<div class="stat-card"><div class="stat-value">${v}</div><div class="stat-label">${l}</div></div>`).join('');
 }
 
+// --- Packages CRUD ---
+async function loadPackages() {
+    const res = await api.adminPackages();
+    if (!res || !res.ok) return;
+    const pkgs = await res.json();
+    const tbody = document.getElementById('pkgBody');
+    if (!pkgs.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No packages.</td></tr>'; return; }
+    tbody.innerHTML = pkgs.map(p => `
+        <tr>
+            <td style="color:var(--muted)">${p.id}</td>
+            <td><strong>${p.name}</strong></td>
+            <td>${fmtBytes(p.quota_bytes)}</td>
+            <td>${p.max_buckets}</td>
+            <td>$${p.price.toFixed(2)}</td>
+            <td style="color:var(--muted);font-size:0.8125rem">${p.description || '—'}</td>
+            <td style="white-space:nowrap">
+                <button class="btn btn-ghost btn-sm" onclick='editPackage(${JSON.stringify(p)})'>Edit</button>
+                <button class="btn btn-danger btn-sm" onclick="deletePackage(${p.id})">Delete</button>
+            </td>
+        </tr>`).join('');
+}
+
+async function createPackage(e) {
+    e.preventDefault();
+    const body = {
+        name: document.getElementById('pName').value,
+        quota_bytes: Math.round(parseFloat(document.getElementById('pQuota').value) * MB),
+        max_buckets: parseInt(document.getElementById('pBuckets').value || '1', 10),
+        price: parseFloat(document.getElementById('pPrice').value || '0'),
+        description: document.getElementById('pDesc').value,
+    };
+    const res = await api.adminCreatePackage(body);
+    showAlert('pkgAlert', res, 'Package created');
+    if (res && res.ok) { document.getElementById('pkgForm').reset(); await loadPackages(); }
+    return false;
+}
+
+async function editPackage(p) {
+    const mb = prompt(`New quota for "${p.name}" in MB:`, Math.round(p.quota_bytes / MB));
+    if (mb == null) return;
+    const res = await api.adminUpdatePackage(p.id, { quota_bytes: Math.round(parseFloat(mb) * MB) });
+    showAlert('pkgAlert', res, 'Package updated');
+    if (res && res.ok) await loadPackages();
+}
+
+async function deletePackage(id) {
+    if (!confirm('Delete this package?')) return;
+    const res = await api.adminDeletePackage(id);
+    showAlert('pkgAlert', res, 'Package deleted');
+    if (res && res.ok) await loadPackages();
+}
+
+// --- Users ---
 async function loadUsers() {
     const res = await api.adminUsers();
     if (!res || !res.ok) return;
     const users = await res.json();
     const tbody = document.getElementById('usersBody');
-    if (!users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No users yet.</td></tr>'; return; }
-    tbody.innerHTML = users.map((u, i) => `
+    if (!users.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">No users yet.</td></tr>'; return; }
+    tbody.innerHTML = users.map(u => `
         <tr>
             <td style="color:var(--muted)">${u.id}</td>
-            <td><strong>${u.full_name}</strong></td>
+            <td><strong>${u.username}</strong></td>
             <td style="color:var(--muted)">${u.email}</td>
-            <td>
-                <span class="badge ${u.is_admin ? 'admin-badge' : 'badge-active'}">
-                    ${u.is_admin ? 'Admin' : 'User'}
-                </span>
+            <td><span class="badge ${u.is_admin ? 'admin-badge' : 'badge-active'}">${u.is_admin ? 'Admin' : 'User'}</span></td>
+            <td><span class="badge ${u.status === 'active' ? 'badge-active' : 'badge-cancelled'}">${u.status}</span></td>
+            <td style="font-weight:600">$${(u.credits || 0).toFixed(2)}</td>
+            <td>${u.package ? u.package.name : '—'}</td>
+            <td>${fmtBytes(u.used_bytes)}</td>
+            <td style="white-space:nowrap">
+                <button class="btn btn-primary btn-sm" onclick="addCredit(${u.id}, '${u.username}')">+ Credit</button>
+                <button class="btn btn-ghost btn-sm" onclick="filterLogs(${u.id}, '${u.username}')">Logs</button>
+                ${u.is_admin ? '' : (u.status === 'active'
+                    ? `<button class="btn btn-ghost btn-sm" onclick="moderate('suspend', ${u.id})">Suspend</button>`
+                    : `<button class="btn btn-ghost btn-sm" onclick="moderate('activate', ${u.id})">Activate</button>`)}
+                ${u.is_admin ? '' : `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>`}
             </td>
-            <td style="text-align:center">${u.active_subscriptions}</td>
-            <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(u.created_at)}</td>
-        </tr>
-    `).join('');
+        </tr>`).join('');
+}
+
+async function addCredit(id, username) {
+    const input = prompt(`Add credit for "${username}" (use a negative number to deduct):`, '10');
+    if (input == null) return;
+    const amount = parseFloat(input);
+    if (!Number.isFinite(amount) || amount === 0) { alert('Enter a non-zero number.'); return; }
+    const res = await api.adminAddCredit(id, amount);
+    showAlert('userAlert', res, 'Credit updated');
+    if (res && res.ok) await loadUsers();
+}
+
+async function moderate(action, id) {
+    const res = action === 'suspend' ? await api.adminSuspendUser(id) : await api.adminActivateUser(id);
+    showAlert('userAlert', res, `User ${action}d`);
+    if (res && res.ok) await loadUsers();
+}
+
+async function deleteUser(id) {
+    if (!confirm('Permanently delete this user and all their data?')) return;
+    const res = await api.adminDeleteUser(id);
+    showAlert('userAlert', res, 'User deleted');
+    if (res && res.ok) { await Promise.all([loadUsers(), loadStats(), loadLogs()]); }
+}
+
+// --- Logs (filterable) ---
+function filterLogs(userId, username) {
+    LOG_FILTER = userId;
+    const label = document.getElementById('logFilterLabel');
+    const clearBtn = document.getElementById('clearFilterBtn');
+    if (userId) { label.textContent = `— ${username}`; clearBtn.style.display = ''; }
+    else { label.textContent = ''; clearBtn.style.display = 'none'; }
+    loadLogs();
 }
 
 async function loadLogs() {
-    const res = await api.adminLogs();
+    const res = await api.adminLogs(LOG_FILTER);
     if (!res || !res.ok) return;
     const logs = await res.json();
     const tbody = document.getElementById('logsBody');
-    if (!logs.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No logs yet.</td></tr>'; return; }
+    if (!logs.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No logs.</td></tr>'; return; }
     tbody.innerHTML = logs.map(l => `
         <tr>
             <td style="color:var(--muted)">${l.id}</td>
-            <td style="font-size:0.8125rem"><strong>${l.user.full_name}</strong><br><span style="color:var(--muted)">${l.user.email}</span></td>
-            <td>${l.package.name}</td>
-            <td><span class="badge ${typeClass(l.package.type)}">${l.package.type}</span></td>
-            <td><span class="badge ${l.action === 'rent' ? 'badge-rent' : 'badge-release'}">${l.action}</span></td>
-            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted)">${l.resource_ref || '—'}</td>
-            <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(l.timestamp)}</td>
-        </tr>
-    `).join('');
+            <td style="font-size:0.8125rem">${l.user ? l.user.username : '—'}</td>
+            <td><span class="badge badge-active">${l.action}</span></td>
+            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted)">${l.detail || '—'}</td>
+            <td>${l.bytes != null ? fmtBytes(l.bytes) : '—'}</td>
+            <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(l.created_at)}</td>
+        </tr>`).join('');
+}
+
+function showAlert(elId, res, okMsg) {
+    const el = document.getElementById(elId);
+    if (res && res.ok) { el.innerHTML = `<div class="alert alert-success">${okMsg}</div>`; }
+    else { res.json().then(e => el.innerHTML = `<div class="alert alert-error">${e.detail || 'Action failed'}</div>`); }
+    setTimeout(() => el.innerHTML = '', 4000);
 }
 
 (async () => {
-    const isAdmin = await guardAdmin();
-    if (!isAdmin) return;
-    await Promise.all([loadStats(), loadUsers(), loadLogs()]);
+    if (!(await guardAdmin())) return;
+    await Promise.all([loadStats(), loadPackages(), loadUsers(), loadLogs()]);
 })();
 </script>
 </body>

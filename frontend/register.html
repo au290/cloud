@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register — IaaS Portal</title>
+    <title>Register — MiniStack Storage</title>
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="auth-wrap">
     <div class="auth-card">
         <div class="auth-title">Create account</div>
-        <div class="auth-sub">Start renting cloud resources today</div>
+        <div class="auth-sub">Get an isolated S3 bucket and access keys instantly</div>
         <div id="alert"></div>
         <form id="registerForm">
             <div class="form-group">
-                <label>Full Name</label>
-                <input type="text" id="name" required placeholder="Damar Jati">
+                <label>Username</label>
+                <input type="text" id="username" required placeholder="damar">
             </div>
             <div class="form-group">
                 <label>Email</label>
@@ -45,7 +45,7 @@
         alertEl.innerHTML = '';
 
         const res = await api.register({
-            full_name: document.getElementById('name').value,
+            username: document.getElementById('username').value,
             email: document.getElementById('email').value,
             password: document.getElementById('password').value,
         });
@@ -53,12 +53,21 @@
         if (!res) return;
 
         if (res.ok) {
-            alertEl.innerHTML = `<div class="alert alert-success">Account created! Redirecting to login…</div>`;
-            setTimeout(() => location.href = '/login.html', 1500);
+            const data = await res.json();
+            const bucket = data.bucket ? data.bucket.name : '(provisioning pending)';
+            // The secret key is returned exactly once — show it before redirecting.
+            document.getElementById('registerForm').style.display = 'none';
+            alertEl.innerHTML = `
+                <div class="alert alert-success" style="font-family:monospace;font-size:0.8125rem;text-align:left">
+                    ✅ Account created. Your bucket: <strong>${bucket}</strong><br><br>
+                    <strong>Access Key:</strong> ${data.access_key_id || '—'}<br>
+                    <strong>Secret Key:</strong> ${data.secret_key || '—'}<br><br>
+                    <span>Save the secret now — it won't be shown again.</span>
+                </div>
+                <a href="/login.html" class="btn btn-primary btn-full" style="margin-top:0.5rem">Continue to sign in</a>`;
         } else {
             const err = await res.json();
-            const msg = Array.isArray(err.detail) ? err.detail.map(e => e.msg).join(', ') : (err.detail || 'Registration failed');
-            alertEl.innerHTML = `<div class="alert alert-error">${msg}</div>`;
+            alertEl.innerHTML = `<div class="alert alert-error">${err.detail || 'Registration failed'}</div>`;
             btn.disabled = false;
             btn.textContent = 'Create account';
         }
