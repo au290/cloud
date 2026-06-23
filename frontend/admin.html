@@ -6,22 +6,53 @@
     <title>Admin — MiniStack Storage</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 1rem; }
-        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; text-align: center; }
-        .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--primary); line-height: 1; }
-        .stat-label { font-size: 0.8125rem; color: var(--muted); margin-top: 0.375rem; }
-        .admin-badge { background: #7c3aed; color: white; }
-        .pkg-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.5rem; align-items: end; }
-        .pkg-form label { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.2rem; }
-        .pkg-form input { width: 100%; padding: 0.4rem; border: 1px solid var(--border); border-radius: 6px; }
+        .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1rem; margin-bottom: 0.5rem; }
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            transition: var(--transition);
+            animation: slideUp 0.3s ease both;
+        }
+        .stat-card:hover {
+            background: var(--card-hover);
+            border-color: rgba(99, 102, 241, 0.2);
+            transform: translateY(-2px);
+        }
+        .stat-value { font-size: 1.85rem; font-weight: 800; color: var(--primary); line-height: 1.1; text-shadow: 0 0 20px rgba(99,102,241,0.25); }
+        .stat-label { font-size: 0.8125rem; color: var(--muted2); margin-top: 0.5rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+        .admin-badge { background: rgba(124, 58, 237, 0.15); color: #c084fc; border: 1px solid rgba(124, 58, 237, 0.3); }
+        .pkg-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; align-items: end; }
+        .pkg-form .form-group { margin-bottom: 0; }
+        .pkg-form label { font-size: 0.75rem; color: var(--muted2); display: block; margin-bottom: 0.35rem; font-weight: 500; }
+        .pkg-form input { width: 100%; }
+        
+        .admin-tag {
+            font-size: 0.7rem;
+            background: rgba(124, 58, 237, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body>
 
 <nav>
-    <span class="nav-brand">🪣 MiniStack Storage <span style="font-size:0.75rem;background:#7c3aed;color:white;padding:0.15rem 0.5rem;border-radius:4px;margin-left:0.5rem;">ADMIN</span></span>
+    <span class="nav-brand">MiniStack Storage <span class="admin-tag">ADMIN</span></span>
     <div class="nav-right">
-        <span class="nav-user" id="navUser"></span>
+        <span class="nav-user" id="navUser">Loading…</span>
         <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
     </div>
 </nav>
@@ -37,7 +68,7 @@
     </div>
 
     <!-- Package management (CRUD) -->
-    <div class="card">
+    <div class="card" style="animation: slideUp 0.4s ease both; animation-delay: 0.05s">
         <div class="section-title">Packages</div>
         <div id="pkgAlert"></div>
         <div class="table-wrap">
@@ -48,19 +79,19 @@
                 <tbody id="pkgBody"><tr><td colspan="7" class="empty">Loading…</td></tr></tbody>
             </table>
         </div>
-        <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">
+        <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0">
         <form class="pkg-form" id="pkgForm" onsubmit="return createPackage(event)">
-            <div><label>Name</label><input id="pName" required placeholder="Team"></div>
-            <div><label>Quota (MB)</label><input id="pQuota" type="number" min="1" required placeholder="100"></div>
-            <div><label>Max buckets</label><input id="pBuckets" type="number" min="1" value="1"></div>
-            <div><label>Price ($)</label><input id="pPrice" type="number" min="0" step="0.01" value="0"></div>
-            <div style="grid-column:span 2"><label>Description</label><input id="pDesc" placeholder="…"></div>
-            <div><button class="btn btn-primary btn-sm" type="submit">+ Add package</button></div>
+            <div class="form-group"><label>Name</label><input id="pName" required placeholder="Team"></div>
+            <div class="form-group"><label>Quota (MB)</label><input id="pQuota" type="number" min="1" required placeholder="100"></div>
+            <div class="form-group"><label>Max buckets</label><input id="pBuckets" type="number" min="1" value="1"></div>
+            <div class="form-group"><label>Price ($)</label><input id="pPrice" type="number" min="0" step="0.01" value="0"></div>
+            <div class="form-group" style="grid-column:span 2"><label>Description</label><input id="pDesc" placeholder="Plan details…"></div>
+            <div class="form-group"><button class="btn btn-primary btn-sm btn-full" type="submit" style="height:38px">+ Add package</button></div>
         </form>
     </div>
 
     <!-- Users -->
-    <div class="card">
+    <div class="card" style="animation: slideUp 0.4s ease both; animation-delay: 0.1s">
         <div class="section-title">All Users</div>
         <div id="userAlert"></div>
         <div class="table-wrap">
@@ -74,9 +105,9 @@
     </div>
 
     <!-- Activity -->
-    <div class="card">
+    <div class="card" style="animation: slideUp 0.4s ease both; animation-delay: 0.15s">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
-            <div class="section-title" style="margin-bottom:0">Activity <span id="logFilterLabel" style="font-weight:400;color:var(--muted);font-size:0.875rem"></span></div>
+            <div class="section-title" style="margin-bottom:0">Activity <span id="logFilterLabel" style="font-weight:400;color:var(--muted2);font-size:0.875rem"></span></div>
             <button class="btn btn-ghost btn-sm" id="clearFilterBtn" style="display:none" onclick="filterLogs(null)">Clear filter</button>
         </div>
         <div class="table-wrap" style="margin-top:0.75rem">
@@ -135,7 +166,7 @@ async function loadPackages() {
             <td>${fmtBytes(p.quota_bytes)}</td>
             <td>${p.max_buckets}</td>
             <td>$${p.price.toFixed(2)}</td>
-            <td style="color:var(--muted);font-size:0.8125rem">${p.description || '—'}</td>
+            <td style="color:var(--muted2);font-size:0.8125rem">${p.description || '—'}</td>
             <td style="white-space:nowrap">
                 <button class="btn btn-ghost btn-sm" onclick='editPackage(${JSON.stringify(p)})'>Edit</button>
                 <button class="btn btn-danger btn-sm" onclick="deletePackage(${p.id})">Delete</button>
@@ -184,7 +215,7 @@ async function loadUsers() {
         <tr>
             <td style="color:var(--muted)">${u.id}</td>
             <td><strong>${u.username}</strong></td>
-            <td style="color:var(--muted)">${u.email}</td>
+            <td style="color:var(--muted2)">${u.email}</td>
             <td><span class="badge ${u.is_admin ? 'admin-badge' : 'badge-active'}">${u.is_admin ? 'Admin' : 'User'}</span></td>
             <td><span class="badge ${u.status === 'active' ? 'badge-active' : 'badge-cancelled'}">${u.status}</span></td>
             <td style="font-weight:600">$${(u.credits || 0).toFixed(2)}</td>
@@ -245,7 +276,7 @@ async function loadLogs() {
             <td style="color:var(--muted)">${l.id}</td>
             <td style="font-size:0.8125rem">${l.user ? l.user.username : '—'}</td>
             <td><span class="badge badge-active">${l.action}</span></td>
-            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted)">${l.detail || '—'}</td>
+            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted2)">${l.detail || '—'}</td>
             <td>${l.bytes != null ? fmtBytes(l.bytes) : '—'}</td>
             <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(l.created_at)}</td>
         </tr>`).join('');

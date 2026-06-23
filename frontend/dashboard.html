@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard — MiniStack Storage</title>
+    <title>Dashboard — Portal Layanan Emulasi Cloud & Bucket S3</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
         /* Indeterminate shimmer for the "finalizing on server" phase after bytes are sent. */
@@ -15,7 +15,7 @@
         }
         @keyframes upshimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
-        /* API docs section */
+        /* API docs section styling */
         .api-config { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.5rem; margin: 0.75rem 0 1rem; }
         .api-config .kv { border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; }
         .api-config .kv .k { font-size: 0.7rem; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
@@ -23,7 +23,7 @@
         .api-tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border); margin-bottom: 0.75rem; flex-wrap: wrap; }
         .api-tab { background: none; border: none; padding: 0.5rem 0.85rem; cursor: pointer; font-size: 0.8125rem; color: var(--muted); border-bottom: 2px solid transparent; }
         .api-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
-        .api-panel pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 0.9rem 1rem; overflow-x: auto; font-size: 0.8125rem; line-height: 1.5; margin: 0; }
+        .api-panel pre { background: #080810; color: #c4b5fd; border: 1px solid rgba(99,102,241,0.2); border-radius: var(--radius-sm); padding: 0.9rem 1rem; overflow-x: auto; font-size: 0.8125rem; line-height: 1.5; margin: 0; }
         .api-codewrap { position: relative; }
         .api-codewrap .copy-btn { position: absolute; top: 0.5rem; right: 0.5rem; }
         .api-rest-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
@@ -38,15 +38,15 @@
         .try-response { margin-top: 0.85rem; }
         .try-resp-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.4rem; }
         .try-status { font-family: monospace; font-size: 0.8125rem; padding: 0.1rem 0.5rem; border-radius: 999px; }
-        .try-status.ok { background: #dcfce7; color: #15803d; }
-        .try-status.err { background: #fee2e2; color: #b91c1c; }
-        .try-response pre { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 0.9rem 1rem; overflow: auto; max-height: 340px; font-size: 0.8125rem; line-height: 1.5; margin: 0; }
+        .try-status.ok { background: rgba(34,197,94,0.15); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .try-status.err { background: var(--danger-bg); color: #fda4af; border: 1px solid var(--danger-border); }
+        .try-response pre { background: #080810; color: #c4b5fd; border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 0.9rem 1rem; overflow: auto; max-height: 340px; font-size: 0.8125rem; line-height: 1.5; margin: 0; }
     </style>
 </head>
 <body>
 
 <nav>
-    <span class="nav-brand">🪣 MiniStack Storage</span>
+    <span class="nav-brand">Portal Layanan Emulasi Cloud & Bucket S3</span>
     <div class="nav-right">
         <span class="nav-user" id="navUser"></span>
         <a href="/logs.html" class="btn btn-ghost btn-sm">Activity</a>
@@ -60,9 +60,9 @@
     <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:0.5rem">
             <div class="section-title" style="margin-bottom:0">Storage Quota</div>
-            <div id="quotaText" style="color:var(--muted);font-size:0.875rem">Loading…</div>
+            <div id="quotaText" style="color:var(--muted2);font-size:0.875rem">Loading…</div>
         </div>
-        <div style="background:var(--border);border-radius:999px;height:14px;overflow:hidden;margin-top:0.75rem">
+        <div class="quota-track">
             <div id="quotaBar" style="height:100%;width:0;background:var(--primary);transition:width .3s"></div>
         </div>
         <div id="bucketInfo" style="margin-top:0.75rem;font-size:0.8125rem;color:var(--muted)"></div>
@@ -74,7 +74,7 @@
             <div class="section-title" style="margin-bottom:0">Packages</div>
             <div id="creditBalance" style="font-weight:700;color:var(--primary)">Credits: —</div>
         </div>
-        <p style="font-size:0.8125rem;color:var(--muted);margin:0.35rem 0 0">
+        <p style="font-size:0.8125rem;color:var(--muted2);margin:0.35rem 0 0">
             Credits are charged when you choose a plan. Need more? Ask an admin to top up your balance.
         </p>
         <div class="pkg-grid" id="packagesGrid" style="margin-top:1rem"><div class="empty">Loading packages…</div></div>
@@ -93,9 +93,9 @@
         <div id="uploadProgress" style="display:none;margin-bottom:1rem">
             <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:0.8125rem;margin-bottom:0.3rem">
                 <span id="upName" style="font-family:monospace"></span>
-                <span id="upStats" style="color:var(--muted)"></span>
+                <span id="upStats" style="color:var(--muted2)"></span>
             </div>
-            <div style="background:var(--border);border-radius:999px;height:10px;overflow:hidden">
+            <div style="background:rgba(255,255,255,0.06);border-radius:999px;height:10px;overflow:hidden">
                 <div id="upBar" style="height:100%;width:0;background:var(--primary);transition:width .12s linear"></div>
             </div>
         </div>
@@ -122,7 +122,7 @@
     <!-- API / Developer access docs -->
     <div class="card">
         <div class="section-title">API Access</div>
-        <p style="font-size:0.8125rem;color:var(--muted);margin-top:-0.25rem">
+        <p style="font-size:0.8125rem;color:var(--muted2);margin-top:-0.25rem">
             Reach your bucket directly from any S3-compatible tool using your Access/Secret keys —
             no dashboard needed. Replace <code>&lt;YOUR_SECRET_KEY&gt;</code> with the secret shown when you created the key.
         </p>
@@ -263,8 +263,8 @@ async function loadFiles() {
         <tr>
             <td style="font-family:monospace;font-size:0.8125rem">${f.object_key}</td>
             <td>${fmtBytes(f.size_bytes)}</td>
-            <td style="color:var(--muted);font-size:0.8125rem">${f.content_type || '—'}</td>
-            <td style="color:var(--muted);font-size:0.8125rem">${fmtDate(f.uploaded_at)}</td>
+            <td style="color:var(--muted2);font-size:0.8125rem">${f.content_type || '—'}</td>
+            <td style="color:var(--muted2);font-size:0.8125rem">${fmtDate(f.uploaded_at)}</td>
             <td style="white-space:nowrap">
                 <button class="btn btn-ghost btn-sm" onclick="download('${encodeURIComponent(f.object_key)}', this)">Download</button>
                 <button class="btn btn-danger btn-sm" onclick="del('${encodeURIComponent(f.object_key)}', this)">Delete</button>
@@ -350,7 +350,7 @@ async function loadCredentials() {
             <span class="cred-value">${cr.access_key_id}</span>
             <button class="btn btn-ghost btn-sm" onclick="copyText('${cr.access_key_id}', this)">Copy</button>
         </div>
-        <p style="font-size:0.75rem;color:var(--muted);margin:0.25rem 0 0.75rem">Created ${fmtDate(cr.created_at)} · secret shown only once at creation</p>
+        <p style="font-size:0.75rem;color:var(--muted2);margin:0.25rem 0 0.75rem">Created ${fmtDate(cr.created_at)} · secret shown only once at creation</p>
     `).join('');
 }
 
@@ -420,12 +420,12 @@ function restTable() {
         ['GET', '/api/logs', 'Your activity log'],
     ];
     const base = location.origin;
-    return `<p style="font-size:0.8125rem;color:var(--muted);margin:0 0 0.6rem">
+    return `<p style="font-size:0.8125rem;color:var(--muted2);margin:0 0 0.6rem">
         Base URL <code>${base}</code>. Send your session token on every call:
         <code>Authorization: Bearer &lt;token&gt;</code>. Example:</p>
         ${codeBlock(`curl -H "Authorization: Bearer <token>" ${base}/api/objects`)}
         <table class="api-rest-table" style="margin-top:0.75rem">
-            ${rows.map(([m, p, d]) => `<tr><td>${m} ${p}</td><td style="color:var(--muted)">${esc(d)}</td></tr>`).join('')}
+            ${rows.map(([m, p, d]) => `<tr><td>${m} ${p}</td><td style="color:var(--muted2)">${esc(d)}</td></tr>`).join('')}
         </table>`;
 }
 

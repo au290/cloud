@@ -9,15 +9,16 @@
 <body>
 
 <nav>
-    <span class="nav-brand">🪣 MiniStack Storage</span>
+    <span class="nav-brand">MiniStack Storage</span>
     <div class="nav-right">
+        <span class="nav-user" id="navUser">Loading…</span>
         <a href="/dashboard.html" class="btn btn-ghost btn-sm">← Dashboard</a>
         <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
     </div>
 </nav>
 
 <div class="container">
-    <div class="card">
+    <div class="card" style="animation: slideUp 0.4s ease both">
         <div class="section-title">Activity Log</div>
         <div class="table-wrap">
             <table>
@@ -38,15 +39,27 @@ function fmtDateTime(iso) { return new Date(iso).toLocaleString('en-GB', {day:'2
 
 function actionBadge(a) {
     const map = {
-        upload: 'badge-rent', download: 'badge-storage', delete: 'badge-release',
-        subscribe: 'badge-active', register: 'badge-active',
-        bucket_created: 'badge-storage', key_generated: 'badge-network',
+        upload: 'badge-rent',
+        download: 'badge-storage',
+        delete: 'badge-release',
+        subscribe: 'badge-active',
+        register: 'badge-active',
+        bucket_created: 'badge-storage',
+        key_generated: 'badge-network',
         quota_exceeded: 'badge-release',
     };
     return map[a] || '';
 }
 
+async function loadMe() {
+    const res = await api.me();
+    if (!res || !res.ok) return;
+    const data = await res.json();
+    document.getElementById('navUser').textContent = `Hi, ${data.user.username}`;
+}
+
 (async () => {
+    loadMe();
     const res = await api.logs();
     if (!res || !res.ok) return;
     const logs = await res.json();
@@ -56,7 +69,7 @@ function actionBadge(a) {
         <tr>
             <td style="color:var(--muted)">${i + 1}</td>
             <td><span class="badge ${actionBadge(l.action)}">${l.action}</span></td>
-            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted)">${l.detail || '—'}</td>
+            <td style="font-family:monospace;font-size:0.8125rem;color:var(--muted2)">${l.detail || '—'}</td>
             <td>${l.bytes != null ? fmtBytes(l.bytes) : '—'}</td>
             <td style="color:var(--muted);font-size:0.8125rem">${fmtDateTime(l.created_at)}</td>
         </tr>`).join('');

@@ -4,30 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Register — MiniStack Storage</title>
+    <meta name="description" content="Create your MiniStack Storage account and get an isolated S3 bucket instantly">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="auth-wrap">
     <div class="auth-card">
+        <span class="auth-logo">🏛️</span>
         <div class="auth-title">Create account</div>
-        <div class="auth-sub">Get an isolated S3 bucket and access keys instantly</div>
+        <div class="auth-sub">Get an isolated S3 bucket &amp; access keys instantly</div>
         <div id="alert"></div>
         <form id="registerForm">
             <div class="form-group">
-                <label>Username</label>
-                <input type="text" id="username" required placeholder="damar">
+                <label for="username">Username</label>
+                <input type="text" id="username" required placeholder="damar" autocomplete="username">
             </div>
             <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="email" required placeholder="you@example.com">
+                <label for="email">Email address</label>
+                <input type="email" id="email" required placeholder="you@example.com" autocomplete="email">
             </div>
             <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="password" required placeholder="••••••••" minlength="6">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="••••••••" minlength="6" autocomplete="new-password">
             </div>
-            <button class="btn btn-primary btn-full" type="submit" id="submitBtn">Create account</button>
+            <button class="btn btn-primary btn-full" type="submit" id="submitBtn" style="margin-top:0.5rem">
+                Create account
+            </button>
         </form>
-        <p style="margin-top:1rem; font-size:0.875rem; text-align:center; color:var(--muted)">
+        <p style="margin-top:1.25rem; font-size:0.875rem; text-align:center; color:var(--muted)">
             Already have an account? <a href="/login.html">Sign in</a>
         </p>
     </div>
@@ -55,16 +59,15 @@
         if (res.ok) {
             const data = await res.json();
             const bucket = data.bucket ? data.bucket.name : '(provisioning pending)';
-            // The secret key is returned exactly once — show it before redirecting.
             document.getElementById('registerForm').style.display = 'none';
             alertEl.innerHTML = `
-                <div class="alert alert-success" style="font-family:monospace;font-size:0.8125rem;text-align:left">
-                    ✅ Account created. Your bucket: <strong>${bucket}</strong><br><br>
-                    <strong>Access Key:</strong> ${data.access_key_id || '—'}<br>
-                    <strong>Secret Key:</strong> ${data.secret_key || '—'}<br><br>
-                    <span>Save the secret now — it won't be shown again.</span>
+                <div class="alert alert-success" style="font-family:'JetBrains Mono',monospace;font-size:0.8125rem;text-align:left;line-height:1.8">
+                    ✅ Account created! Your bucket: <strong>${bucket}</strong><br><br>
+                    <span style="color:var(--muted)">Access Key:</span> ${data.access_key_id || '—'}<br>
+                    <span style="color:var(--muted)">Secret Key:</span> ${data.secret_key || '—'}<br><br>
+                    <span style="font-size:0.75rem;opacity:0.7">⚠ Save your secret key now — it won't be shown again.</span>
                 </div>
-                <a href="/login.html" class="btn btn-primary btn-full" style="margin-top:0.5rem">Continue to sign in</a>`;
+                <a href="/login.html" class="btn btn-primary btn-full" style="margin-top:0.5rem">Continue to sign in →</a>`;
         } else {
             const err = await res.json();
             alertEl.innerHTML = `<div class="alert alert-error">${err.detail || 'Registration failed'}</div>`;

@@ -3,28 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — MiniStack Storage</title>
+    <title>Sign In — MiniStack Storage</title>
+    <meta name="description" content="Sign in to your MiniStack Storage account">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="auth-wrap">
     <div class="auth-card">
+        <span class="auth-logo">🏛️</span>
         <div class="auth-title">Welcome back</div>
-        <div class="auth-sub">Sign in to your MiniStack Storage account</div>
+        <div class="auth-sub">Sign in to MiniStack Storage</div>
         <div id="alert"></div>
         <form id="loginForm">
             <div class="form-group">
-                <label>Email</label>
-                <input type="email" id="email" required placeholder="you@example.com">
+                <label for="email">Email address</label>
+                <input type="email" id="email" required placeholder="you@example.com" autocomplete="email">
             </div>
             <div class="form-group">
-                <label>Password</label>
-                <input type="password" id="password" required placeholder="••••••••">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="••••••••" autocomplete="current-password">
             </div>
-            <button class="btn btn-primary btn-full" type="submit" id="submitBtn">Sign in</button>
+            <button class="btn btn-primary btn-full" type="submit" id="submitBtn" style="margin-top:0.5rem">
+                Sign in
+            </button>
         </form>
-        <p style="margin-top:1rem; font-size:0.875rem; text-align:center; color:var(--muted)">
-            Don't have an account? <a href="/register.html">Register</a>
+        <p style="margin-top:1.25rem; font-size:0.875rem; text-align:center; color:var(--muted)">
+            Don't have an account? <a href="/register.html">Create one</a>
         </p>
     </div>
 </div>
@@ -35,10 +39,10 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('submitBtn');
-        const alert = document.getElementById('alert');
+        const alertEl = document.getElementById('alert');
         btn.disabled = true;
         btn.textContent = 'Signing in…';
-        alert.innerHTML = '';
+        alertEl.innerHTML = '';
 
         const res = await api.login({
             email: document.getElementById('email').value,
@@ -53,7 +57,7 @@
             location.href = data.is_admin ? '/admin.html' : '/dashboard.html';
         } else {
             const err = res ? await res.json() : {};
-            alert.innerHTML = `<div class="alert alert-error">${err.detail || 'Login failed'}</div>`;
+            alertEl.innerHTML = `<div class="alert alert-error">${err.detail || 'Login failed'}</div>`;
             btn.disabled = false;
             btn.textContent = 'Sign in';
         }
