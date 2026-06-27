@@ -50,7 +50,7 @@ body {
 
 /* Simulated Marquee at the very top */
 body::before {
-    content: "📢 PENGUMUMAN: PEMELIHARAAN SYSTEM MINI-STACK STORAGE NASIONAL DILAKUKAN SETIAP HARI MINGGU • INTEGRASI DATA CLOUD NASIONAL (SIMPUN) DIJAMIN AMAN DENGAN ENKRIPSI AES-256 • HUBUNGI ADMINISTRATOR PORTAL JIKA KUOTA HABIS";
+    content: "📢 PENGUMUMAN: PEMELIHARAAN SISTEM PORTAL LAYANAN EMULASI CLOUD & BUCKET S3 DILAKUKAN SETIAP HARI MINGGU • INTEGRASI DATA CLOUD NASIONAL (SIMPUN) DIJAMIN AMAN DENGAN ENKRIPSI AES-256 • HUBUNGI ADMINISTRATOR PORTAL JIKA KUOTA HABIS";
     display: block;
     background: #ffc107;
     color: #000;
@@ -112,26 +112,6 @@ nav {
     align-items: center;
     gap: 0.75rem;
     text-shadow: 2px 2px 0px #000000;
-}
-
-.nav-brand::before {
-    content: ""; /* Government shield logo */
-    font-size: 1.8rem;
-    filter: drop-shadow(1px 1px 0 #000);
-}
-
-.nav-brand::after {
-    content: "";
-    display: none;
-    font-size: 0.65rem;
-    background: #ffc107;
-    color: #000;
-    padding: 0.15rem 0.4rem;
-    border: 1px solid #000;
-    margin-left: 0.75rem;
-    font-family: 'Arial', sans-serif;
-    text-shadow: none;
-    font-weight: 900;
 }
 
 .nav-right { 
@@ -818,18 +798,4 @@ hr {
     font-weight: bold;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-}
-
-/* Side decoration - "Zona Integritas / Wilayah Bebas Korupsi" sticker */
-.container::after {
-    content: "⭐ LAYANAN PRIMA INFRASTRUKTUR CLOUD ⭐ WILAYAH BEBAS DARI KORUPSI (WBK) & WILAYAH BIROKRASI BERSIH MELAYANI (WBBM) ⭐ MANAJEMEN DATA (LPIC-MD) ⭐";
-    display: block;
-    background: #0b335e;
-    color: #fff;
-    padding: 0.5rem;
-    font-size: 0.75rem;
-    text-align: center;
-    font-weight: bold;
-    border: 1px solid #ffc107;
-    margin-top: 1rem;
 }
