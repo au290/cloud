@@ -1,7 +1,6 @@
 # MiniStack Storage Portal
 
-A self-service "rent-a-bucket" cloud storage platform, built to the design in
-[`SKILL.md`](SKILL.md). Users register, the system auto-provisions an isolated S3
+A self-service "rent-a-bucket" cloud storage platform. Users register, the system auto-provisions an isolated S3
 bucket + Access/Secret keys in **MiniStack** (a Docker-free AWS emulator), and they
 upload/list/download/delete objects against a byte quota set by their subscription
 package.
@@ -69,7 +68,7 @@ The platform runs on **PostgreSQL only** — create the database first
 provisioning still mints local AWS-style keys but object operations fail until
 MiniStack is up.
 
-## API (see SKILL.md §7)
+## API
 
 `POST /api/register` · `POST /api/login` · `GET /api/me` · `GET /api/packages` ·
 `GET|POST /api/subscriptions` · `GET|POST /api/credentials` ·
